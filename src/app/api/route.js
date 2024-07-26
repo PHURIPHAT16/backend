@@ -10,7 +10,7 @@ const client = new Client({
 });
 
 client.connect();
-//-------------------------------------------------------------------------------------
+//--------------------------------------------------------------------------------------
 export async function GET() {
   try {
     const result = await client.query('SELECT * FROM tbl_users');
