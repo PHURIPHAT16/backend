@@ -10,6 +10,12 @@ const client = new Client({
 });
 client.connect();
 
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization",
+};
+
 export async function GET() {
   try {
     const result = await client.query('SELECT * FROM tbl_users');
