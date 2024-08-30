@@ -1,5 +1,3 @@
-import { NextResponse } from "next/server";
-import { comparePassword } from '../lib/auth';
 import { Client } from "pg";
 import dotenv from "dotenv";
 import bcrypt from 'bcrypt';
@@ -11,9 +9,11 @@ const client = new Client({
   connectionString: process.env.DATABASE_URL,
 });
 
-client.connect();
+client.connect().catch(err => {
+  console.error('Database connection error:', err.stack);
+  process.exit(1); // Exit the process if the database connection fails
+});
 
-// app/api/login/route.js
 export async function POST(request) {
   try {
     const { username, password } = await request.json();
@@ -22,35 +22,36 @@ export async function POST(request) {
     if (res.rows.length === 0) {
       return new Response(JSON.stringify({ error: 'User not found' }), {
         status: 404,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' },
       });
     }
 
     const user = res.rows[0];
-    console.log(user);
     const match = await bcrypt.compare(password, user.password);
-    console.log(match);
 
-    if (match != true) {
+    if (!match) {
       return new Response(JSON.stringify({ error: 'Invalid password' }), {
         status: 401,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' },
       });
-    }else{
+    } else {
+      // Generate JWT token
+      const token = jwt.sign({ id: user.id, username: user.username }, process.env.JWT_SECRET, { expiresIn: '1h' });
 
-    // สมมติว่าเราสร้าง JWT สำหรับการล็อกอิน (สามารถใช้ library เช่น jsonwebtoken)
-    // Generate JWT token
-    const token = jwt.sign({ id: user.id, username: user.username }, process.env.JWT_SECRET, { expiresIn: '1h' });
+      // Set the token in a cookie
+      const response = new Response(JSON.stringify({ message: 'Login successful', user, token }), {
+        status: 200,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Content-Type': 'application/json',
+          'Set-Cookie': `token=${token}; HttpOnly; Path=/; Max-Age=3600` // 1 hour expiry
+        },
+      });
 
-    // ตัวอย่างนี้จะข้ามขั้นตอนการสร้าง JWT เพื่อความง่าย
-    return new Response(JSON.stringify({ message: 'Login successful', user, token }), {
-      status: 200,
-      headers: { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' },
-    });
-
+      return response;
     }
   } catch (error) {
-    console.error(error);
+    console.error('Error during login:', error);
     return new Response(JSON.stringify({ error: 'Internal Server Error' }), {
       status: 500,
       headers: { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' },
